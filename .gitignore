@@ -1,0 +1,13 @@
+# Raw data -- 487MB, will break a git push (GitHub blocks files >100MB).
+# Stage 3 reproduction supplies candidates.jsonl separately; you don't commit it.
+data/raw/
+*.jsonl
+
+# Precomputed embeddings -- regenerate via src/precompute.py, don't commit the binary.
+data/precomputed/*.npy
+data/precomputed/*.parquet
+
+venv/
+__pycache__/
+*.pyc
+.DS_Store
