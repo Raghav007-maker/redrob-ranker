@@ -20,7 +20,7 @@ expected, not a bug -- tighten it after looking at real output, not before.
 import json
 import time
 import pandas as pd
-from rules import hard_red_flags, green_signals, location_fit, notice_period_fit
+from rules import hard_red_flags, green_signals, location_fit, notice_period_fit, behavioral_modifier, _narrative_blob
 
 TIER_A_TITLES = {  # ~1,156 candidates, ~1.15% of pool -- the narrow target zone
     "ML Engineer", "AI Research Engineer", "Data Scientist",
@@ -66,6 +66,8 @@ def extract_row(candidate: dict) -> dict:
         "location": candidate["profile"]["location"],
         "location_fit": location_fit(candidate),
         "notice_fit": notice_period_fit(candidate),
+        "behavioral_modifier": behavioral_modifier(candidate),
+        "narrative_text": _narrative_blob(candidate),
     }
     for name, (flag, reason) in flags.items():
         row[f"flag_{name}"] = flag

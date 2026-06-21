@@ -158,6 +158,38 @@ def skill_claim_vs_assessment_gap(candidate: dict):
     return False, ""
 
 
+SNAPSHOT_DATE = date(2026, 6, 21)
+# Hardcoded on purpose -- last_active_date recency must not depend on
+# datetime.now(). If it did, running this script today vs. next week would
+# silently change rankings, which breaks Stage 3 reproducibility. Update
+# this once, to whatever date you generate your final submission, then stop
+# touching it.
+
+
+def behavioral_modifier(candidate: dict) -> float:
+    """Multiplicative modifier per the JD's own language ('down-weight
+    appropriately') and redrob_signals_doc's recommendation to use these as
+    a modifier on top of skill-match, not a standalone score."""
+    sig = candidate["redrob_signals"]
+
+    last_active = datetime.strptime(sig["last_active_date"], "%Y-%m-%d").date()
+    days_inactive = (SNAPSHOT_DATE - last_active).days
+    if days_inactive <= 30:
+        recency = 1.0
+    elif days_inactive <= 90:
+        recency = 0.9
+    elif days_inactive <= 180:
+        recency = 0.75
+    else:
+        recency = 0.5  # JD explicitly calls out the 6-month-inactive case
+
+    response = 0.7 + 0.3 * sig["recruiter_response_rate"]
+    interview = 0.85 + 0.15 * sig["interview_completion_rate"]
+    open_to_work = 1.0 if sig["open_to_work_flag"] else 0.85
+
+    return recency * response * interview * open_to_work
+
+
 def location_fit(candidate: dict) -> float:
     loc = candidate["profile"].get("location", "").lower()
     country = candidate["profile"].get("country", "")
