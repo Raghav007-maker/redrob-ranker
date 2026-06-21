@@ -47,9 +47,11 @@ LLM_FINETUNE_TERMS = ["lora", "qlora", "peft", "fine-tuning llms", "fine-tuning"
 LTR_TERMS = ["learning-to-rank", "learning to rank", "xgboost ranking", "neural ranking"]
 
 NLP_IR_TERMS = [
-    "nlp", "retrieval", "ranking", "search", "information retrieval",
-    "rag", "llm", "embedding",
-]
+    "nlp", "natural language processing", "named entity", "text classification",
+    "sentiment analysis", "tokeniz", "transformer model", "language model",
+    "text retrieval", "semantic search", "retrieval-augmented", "question answering",
+]  # tightened: dropped bare "embedding"/"search"/"ranking" -- too generic,
+   # showed up on a Computer Vision Engineer's skill list and suppressed the flag
 CV_SPEECH_ROBOTICS_TERMS = [
     "computer vision", "image classification", "speech recognition",
     "tts", "robotics", "gans", "object detection",
@@ -89,7 +91,10 @@ def consulting_only_career(candidate: dict):
 
 def architect_without_recent_code(candidate: dict):
     """WEAK PROXY: schema has no 'last wrote production code' field. Approximated
-    via current title containing a leadership term and current tenure > 18mo."""
+    via current title containing a leadership term and current tenure > 18mo.
+    NOTE: verified against the full 100K pool -- this dataset's title taxonomy
+    has zero Architect/Director/VP/Head-of titles, so this never fires here.
+    Left in for safety (harmless no-op) in case that's wrong on data you add."""
     current = next((c for c in candidate["career_history"] if c.get("is_current")), None)
     if not current:
         return False, ""
@@ -99,12 +104,28 @@ def architect_without_recent_code(candidate: dict):
     return False, ""
 
 
+def _narrative_blob(candidate: dict) -> str:
+    """Titles + role descriptions only -- NOT the skills list. The skills
+    array in this dataset is salted with random unrelated buzzword tags
+    (verified: a Data Engineer with 'GANs', 'Sales', 'Figma' all in one
+    list) -- it's noise for domain classification. Career narrative text
+    is coherent and reflects what someone actually did."""
+    parts = [
+        candidate["profile"].get("headline", ""),
+        candidate["profile"].get("summary", ""),
+    ]
+    for role in candidate.get("career_history", []):
+        parts.append(role.get("title", ""))
+        parts.append(role.get("description", ""))
+    return " ".join(parts).lower()
+
+
 def cv_speech_without_nlp(candidate: dict):
-    blob = _blob(candidate)
+    blob = _narrative_blob(candidate)
     has_cv_speech = any(t in blob for t in CV_SPEECH_ROBOTICS_TERMS)
     has_nlp_ir = any(t in blob for t in NLP_IR_TERMS)
     if has_cv_speech and not has_nlp_ir:
-        return True, "Profile shows CV/speech/robotics background with no NLP/IR/retrieval exposure -- explicit JD disqualifier."
+        return True, "Career narrative (titles + role descriptions) shows CV/speech/robotics work with no NLP/IR exposure -- explicit JD disqualifier."
     return False, ""
 
 
@@ -173,11 +194,18 @@ def green_signals(candidate: dict) -> dict:
 
 def hard_red_flags(candidate: dict) -> dict:
     """Each value is (flag: bool, reason: str). Use these to exclude or heavily
-    down-rank -- not necessarily a hard zero, your call on weighting."""
+    down-rank -- not necessarily a hard zero, your call on weighting.
+
+    cv_speech_without_nlp is deliberately excluded here. Tried 3 variants
+    (skills list, full narrative, narrative-only) -- every one of them
+    trips on generic ML buzzword salad that this dataset salts into both
+    skills lists AND self-written summaries, independent of a candidate's
+    actual specialization. Not a tuning problem -- a property of how this
+    data was generated. Re-include only if you find a more reliable signal;
+    don't ship a rule you've already disproved 3 times."""
     return {
         "consulting_only": consulting_only_career(candidate),
         "architect_no_code": architect_without_recent_code(candidate),
-        "cv_without_nlp": cv_speech_without_nlp(candidate),
         "title_chaser": title_chase_pattern(candidate),
         "skill_inflation": skill_claim_vs_assessment_gap(candidate),
     }
