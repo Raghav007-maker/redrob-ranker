@@ -3,8 +3,10 @@
 data/raw/
 *.jsonl
 
-# Precomputed embeddings -- regenerate via src/precompute.py, don't commit the binary.
-data/precomputed/*.npy
+# Precomputed embeddings -- ~48MB, safe to commit directly (under GitHub's
+# 100MB limit). DO commit candidate_embeddings.npy and jd_embedding.npy --
+# they must be baked into the Docker image so rank.py never re-encodes
+# during the timed 5-minute Stage 3 window.
 data/precomputed/*.parquet
 
 venv/

@@ -56,18 +56,33 @@ def precomputed_bge_scores(df: pd.DataFrame):
     return cosine_similarity(cand_emb, jd_emb).flatten()
 
 
+def experience_fit(yoe: float) -> float:
+    """JD targets 3-8 years of recent production ML experience.
+    Under 2 years -- too junior for a Senior role.
+    3-8 years -- sweet spot.
+    9-12 years -- acceptable, but the JD's language skews younger/hands-on.
+    13+ years -- their early career predates modern transformers/embeddings;
+    high risk of being stuck in older paradigms."""
+    if yoe < 2:
+        return 0.4
+    elif yoe <= 8:
+        return 1.0
+    elif yoe <= 12:
+        return 0.75
+    else:
+        return 0.5  # explicitly penalises the 16.2yr outlier we saw in top 10
+
+
 def composite_score(df: pd.DataFrame) -> pd.Series:
-    """Hand-tuned weights -- first cut. The organizers' own example
-    methodology (in submission_metadata_template.yaml) is the same shape:
-    weighted components + a multiplicative behavioral modifier. Tune these
-    numbers after Day 4's hand-validation pass, don't trust them blind."""
     title_bonus = df["title_tier"].map({"A": 1.0, "B": 0.4}).fillna(0.0)
+    exp_fit = df["years_of_experience"].apply(experience_fit)
 
     base = (
-        0.45 * title_bonus
+        0.40 * title_bonus
         + 0.35 * df["semantic_score"]
         + 0.10 * df["location_fit"]
         + 0.10 * df["notice_fit"]
+        + 0.05 * exp_fit
     )
     penalty = (
         0.30 * df["flag_consulting_only"].astype(float)
