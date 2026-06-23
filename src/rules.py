@@ -36,6 +36,7 @@ EMBEDDING_TERMS = [
 VECTOR_DB_TERMS = [
     "pinecone", "weaviate", "qdrant", "milvus", "opensearch",
     "elasticsearch", "faiss", "vector database", "hybrid search",
+    "pgvector", "pg vector", "vector search", "vector store",
 ]
 
 EVAL_FRAMEWORK_TERMS = [
