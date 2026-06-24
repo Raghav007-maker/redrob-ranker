@@ -14,3 +14,4 @@ __pycache__/
 *.pyc
 .DS_Store
 data/precomputed/submission_draft.csv
+data/precomputed/submission_final.csv
