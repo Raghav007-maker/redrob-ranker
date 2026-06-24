@@ -188,7 +188,11 @@ def behavioral_modifier(candidate: dict) -> float:
     interview = 0.85 + 0.15 * sig["interview_completion_rate"]
     open_to_work = 1.0 if sig["open_to_work_flag"] else 0.85
 
-    return recency * response * interview * open_to_work
+    raw = recency * response * interview * open_to_work
+    # Dampen: floor was ~0.25x (too punishing for strong candidates with moderate
+    # behavioral signals). Now floor is ~0.70x. Strong career still matters more
+    # than a 55% recruiter response rate. Range: [0.70, 1.00] instead of [0.25, 1.00]
+    return 0.6 + 0.4 * raw
 
 
 def location_fit(candidate: dict) -> float:

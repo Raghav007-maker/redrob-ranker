@@ -61,8 +61,9 @@ def experience_fit(yoe: float) -> float:
     Under 2 years -- too junior for a Senior role.
     3-8 years -- sweet spot.
     9-12 years -- acceptable, but the JD's language skews younger/hands-on.
-    13+ years -- their early career predates modern transformers/embeddings;
-    high risk of being stuck in older paradigms."""
+    13+ years -- was 0.5x, loosened to 0.65x. CAND_0039754 (Meta + Apple,
+    15 JD signal hits) showed the 0.5x penalty was burying genuinely modern
+    candidates who just happen to have long careers."""
     if yoe < 2:
         return 0.4
     elif yoe <= 8:
@@ -70,18 +71,44 @@ def experience_fit(yoe: float) -> float:
     elif yoe <= 12:
         return 0.75
     else:
-        return 0.5  # explicitly penalises the 16.2yr outlier we saw in top 10
+        return 0.65  # loosened from 0.5 -- confirmed over-penalising on real data
 
 
 def composite_score(df: pd.DataFrame) -> pd.Series:
+    """
+    Weight changes vs. Day 3 (all validated against real top-100 cards):
+
+    title_bonus:   0.40 → 0.25  -- was drowning candidates with weak career history
+                                    (rank 4 had 0 JD hits, rank 3 had TCS+CV work)
+    semantic_score: 0.35 → 0.40 -- BGE doing real semantic work, deserves more say
+    green_score:    0.00 → 0.15 -- JD skill signals (vector DB, LTR, eval framework,
+                                    fine-tuning, embeddings) already computed in parquet;
+                                    caught CAND_0086022 (14 hits, rank 84) and
+                                    CAND_0027691 (12 hits, rank 96) being buried
+    location_fit:   0.10 → 0.10 -- unchanged
+    notice_fit:     0.10 → 0.05 -- marginal differentiator, freed weight for green
+    exp_fit:        0.05 → 0.05 -- unchanged (but threshold loosened in function above)
+
+    Behavioral modifier: dampened from floor~0.25x to floor~0.70x in rules.py.
+    Strong career + weak recruiter response rate was the single biggest misranking
+    cause (CAND_0086022 was 0.617x, CAND_0027691 was 0.768x -- now 0.847 and 0.907).
+    """
     title_bonus = df["title_tier"].map({"A": 1.0, "B": 0.4}).fillna(0.0)
     exp_fit = df["years_of_experience"].apply(experience_fit)
 
+    green_cols = [
+        "green_embeddings_production", "green_vector_db", "green_eval_framework",
+        "green_llm_finetuning", "green_learning_to_rank", "green_open_source_signal",
+    ]
+    available = [c for c in green_cols if c in df.columns]
+    green_score = df[available].astype(float).sum(axis=1) / max(len(available), 1)
+
     base = (
-        0.40 * title_bonus
-        + 0.35 * df["semantic_score"]
+        0.25 * title_bonus
+        + 0.40 * df["semantic_score"]
+        + 0.15 * green_score
         + 0.10 * df["location_fit"]
-        + 0.10 * df["notice_fit"]
+        + 0.05 * df["notice_fit"]
         + 0.05 * exp_fit
     )
     penalty = (
