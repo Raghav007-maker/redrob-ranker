@@ -1,0 +1,8 @@
+# Minimal dependencies for the ranking pipeline only.
+# sentence-transformers is needed for the cross-encoder rerank step.
+# lightgbm and streamlit are dev-only -- not needed at ranking time.
+pandas>=2.0
+numpy>=1.24
+scikit-learn>=1.3
+pyarrow>=12.0
+sentence-transformers>=2.2

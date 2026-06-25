@@ -1,0 +1,84 @@
+# Redrob Hackathon — Submission Metadata
+
+# ============================================================================
+# Team identity
+# ============================================================================
+team_name: "redrob-ranker"
+
+primary_contact:
+  name: "Raghav"
+  email: "YOUR_EMAIL_HERE"
+  phone: "YOUR_PHONE_HERE"
+
+team_members:
+  - name: "Raghav"
+    email: "YOUR_EMAIL_HERE"
+    role: "ML Engineer / Team Lead"
+
+# ============================================================================
+# Code and reproducibility
+# ============================================================================
+github_repo: "https://github.com/Raghav007-maker/redrob-ranker"
+
+sandbox_link: "STREAMLIT_CLOUD_URL_HERE"
+# Deploy app.py to Streamlit Cloud and replace this URL before submitting.
+
+reproduce_command: "python src/pipeline.py --candidates ./candidates.jsonl --out ./submission.csv"
+
+# ============================================================================
+# Compute environment
+# ============================================================================
+compute:
+  platform: "Windows 11 Laptop (DELL)"
+  cpu_cores: 8
+  ram_gb: 16
+  python_version: "3.11"
+  os: "Windows 11"
+  uses_gpu_for_inference: false
+  has_network_during_ranking: false
+  pre_computation_required: true
+  pre_computation_time_minutes: 290  # ~5h BGE embedding precompute (one-time, offline)
+
+# ============================================================================
+# AI tools declaration
+# ============================================================================
+
+ai_tools_used:
+  - "Claude"
+  
+
+ai_usage_summary: |
+  Used Claude (Anthropic) as a development partner throughout the project:
+  architecture design, code review, debugging, and iteration on scoring logic.
+  All candidate data processing, weight tuning, and hand-validation of top-100
+  profiles was done by the developer. No candidate data was fed to any external
+  LLM during ranking. The ranking pipeline is fully deterministic and runs
+  locally with no API calls.
+
+# ============================================================================
+# Approach summary
+# ============================================================================
+methodology_summary: |
+  Five-stage hybrid ranking pipeline. Stage 1: exact 47-title taxonomy filter
+  cuts 100K to ~31K plausible candidates (Tier A: genuine ML/AI titles;
+  Tier B: adjacent SWE/Data/DevOps; decoys excluded). Stage 2: JD disqualifier
+  rules (consulting-only career, title-chaser pattern, skill claim vs assessed
+  score gap) applied to the filtered pool. Stage 3: precomputed BGE
+  (bge-small-en-v1.5) cosine similarity between candidate narrative text and JD
+  query provides semantic fit signal. Stage 4: weighted composite score fusing
+  title tier (0.25), BGE semantic score (0.40), JD skill signal count (0.15),
+  location fit (0.10), notice period (0.05), and experience fit (0.05),
+  multiplied by a dampened behavioral modifier (response rate, interview
+  completion, last-active recency). Stage 5: grounded per-candidate reasoning
+  sourced only from career descriptions (no hallucination). The pipeline runs
+  in ~45s on CPU; precomputed embeddings are baked into the Docker image.
+
+# ============================================================================
+# Declarations
+# ============================================================================
+declarations:
+  read_submission_spec: true
+  code_is_original_work: true
+  no_collusion: true
+  honeypot_check_done: true
+  reproduction_tested: true
