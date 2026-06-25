@@ -18,6 +18,7 @@ expected, not a bug -- tighten it after looking at real output, not before.
 """
 
 import json
+import os
 import time
 import pandas as pd
 from rules import hard_red_flags, green_signals, location_fit, notice_period_fit, behavioral_modifier, _narrative_blob
@@ -82,7 +83,7 @@ def main():
     n_passed_filter = 0
     rows = []
 
-    with open("../data/raw/candidates.jsonl") as f:
+    with open(os.environ.get("CANDIDATES_PATH", "../data/raw/candidates.jsonl")) as f:
         for line in f:
             n_total += 1
             c = json.loads(line)

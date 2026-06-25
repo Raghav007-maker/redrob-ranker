@@ -19,6 +19,7 @@ Run from src/:
 
 import hashlib
 import json
+import os
 import re
 import pandas as pd
 
@@ -296,10 +297,11 @@ def build_reasoning(rank: int, candidate: dict, row: pd.Series) -> str:
 def main():
     draft = pd.read_csv("../data/precomputed/submission_draft.csv")
 
+    candidates_path = os.environ.get("CANDIDATES_PATH", "../data/raw/candidates.jsonl")
     print("Loading top-100 candidate profiles...")
     target_ids = set(draft["candidate_id"])
     index = {}
-    with open("../data/raw/candidates.jsonl") as f:
+    with open(candidates_path) as f:
         for line in f:
             c = json.loads(line)
             if c["candidate_id"] in target_ids:
