@@ -7,12 +7,12 @@ team_name: "redrob-ranker"
 
 primary_contact:
   name: "Raghav"
-  email: "YOUR_EMAIL_HERE"
-  phone: "YOUR_PHONE_HERE"
+  email: "raghav.bansal0212@gmail.com"
+  phone: "7599962542"
 
 team_members:
   - name: "Raghav"
-    email: "YOUR_EMAIL_HERE"
+    email: "raghav.bansal0212@gmail.com"
     role: "ML Engineer / Team Lead"
 
 # ============================================================================
@@ -20,8 +20,8 @@ team_members:
 # ============================================================================
 github_repo: "https://github.com/Raghav007-maker/redrob-ranker"
 
-sandbox_link: "STREAMLIT_CLOUD_URL_HERE"
-# Deploy app.py to Streamlit Cloud and replace this URL before submitting.
+sandbox_link: "https://redrob-ranker-007.streamlit.app/"
+
 
 reproduce_command: "python src/pipeline.py --candidates ./candidates.jsonl --out ./submission.csv"
 
@@ -43,17 +43,7 @@ compute:
 # AI tools declaration
 # ============================================================================
 
-ai_tools_used:
-  - "Claude"
-  
 
-ai_usage_summary: |
-  Used Claude (Anthropic) as a development partner throughout the project:
-  architecture design, code review, debugging, and iteration on scoring logic.
-  All candidate data processing, weight tuning, and hand-validation of top-100
-  profiles was done by the developer. No candidate data was fed to any external
-  LLM during ranking. The ranking pipeline is fully deterministic and runs
-  locally with no API calls.
 
 # ============================================================================
 # Approach summary
