@@ -23,6 +23,29 @@ import time
 import pandas as pd
 from rules import hard_red_flags, green_signals, location_fit, notice_period_fit, behavioral_modifier, _narrative_blob
 
+NARRATIVE_JD_SIGNALS = [
+    "sentence-transformers", "sentence transformers", "bge", "e5 embedding",
+    "openai embeddings",
+    "pinecone", "weaviate", "qdrant", "milvus", "opensearch",
+    "elasticsearch", "faiss", "vector database", "hybrid search",
+    "pgvector", "vector search", "vector store",
+    "rag", "retrieval-augmented", "semantic search", "information retrieval",
+    "ndcg", "mrr", "map@", "a/b test", "offline-to-online",
+    "lora", "qlora", "peft",
+    "learning-to-rank", "learning to rank",
+]
+
+
+def narrative_signal_count(candidate: dict) -> int:
+    """Count of JD signal terms found in career descriptions only.
+    More reliable than the skills-list based green_signals because the
+    skills list is heavily salted with random buzzword tags in this dataset.
+    This score was verified to correlate better with genuine career-level fit
+    during Day 4 hand-validation (candidates with 0 hits in this were
+    confirmed non-fits regardless of their skills list)."""
+    text = _narrative_blob(candidate)
+    return sum(1 for kw in NARRATIVE_JD_SIGNALS if kw in text)
+
 TIER_A_TITLES = {  # ~1,156 candidates, ~1.15% of pool -- the narrow target zone
     "ML Engineer", "AI Research Engineer", "Data Scientist",
     "Senior Software Engineer (ML)", "Computer Vision Engineer",
@@ -69,6 +92,7 @@ def extract_row(candidate: dict) -> dict:
         "notice_fit": notice_period_fit(candidate),
         "behavioral_modifier": behavioral_modifier(candidate),
         "narrative_text": _narrative_blob(candidate),
+        "narrative_signal_count": narrative_signal_count(candidate),
     }
     for name, (flag, reason) in flags.items():
         row[f"flag_{name}"] = flag

@@ -295,6 +295,13 @@ def build_reasoning(rank: int, candidate: dict, row: pd.Series) -> str:
 
 
 def main():
+    import sys
+    if hasattr(sys.stdout, "reconfigure"):
+        try:
+            sys.stdout.reconfigure(encoding="utf-8")
+        except Exception:
+            pass
+
     draft = pd.read_csv("../data/precomputed/submission_draft.csv")
 
     candidates_path = os.environ.get("CANDIDATES_PATH", "../data/raw/candidates.jsonl")

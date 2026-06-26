@@ -159,12 +159,9 @@ def skill_claim_vs_assessment_gap(candidate: dict):
     return False, ""
 
 
-SNAPSHOT_DATE = date(2026, 6, 21)
-# Hardcoded on purpose -- last_active_date recency must not depend on
-# datetime.now(). If it did, running this script today vs. next week would
-# silently change rankings, which breaks Stage 3 reproducibility. Update
-# this once, to whatever date you generate your final submission, then stop
-# touching it.
+SNAPSHOT_DATE = date(2026, 7, 1)
+# Updated to July 1 -- one day before final submission. Hardcoded on purpose:
+# ranking must be deterministic regardless of when the script runs.
 
 
 def behavioral_modifier(candidate: dict) -> float:
@@ -229,6 +226,28 @@ def green_signals(candidate: dict) -> dict:
     }
 
 
+def yoe_career_mismatch(candidate: dict):
+    """Detects 'claimed N years but career history only shows M years' pattern.
+    The spec names this explicitly as a honeypot marker.
+    Threshold: gap > 7 years AND ratio > 2x. This catches CAND_0091534
+    (16.6yr claimed, 7.1yr visible = 9.5yr gap, 2.34x ratio) while not
+    flagging legitimate gaps (career breaks, early roles omitted)."""
+    yoe = candidate["profile"]["years_of_experience"]
+    total_months = sum(r.get("duration_months", 0) for r in candidate.get("career_history", []))
+    if total_months == 0:
+        return False, ""
+    total_years = total_months / 12.0
+    gap = yoe - total_years
+    ratio = yoe / max(total_years, 0.5)
+    if gap > 7 and ratio > 2.0:
+        return True, (
+            f"Claims {yoe:.1f}yr experience but career history totals only "
+            f"{total_years:.1f}yr — {gap:.1f}-year gap is implausible. "
+            f"Possible honeypot (ratio {ratio:.1f}x)."
+        )
+    return False, ""
+
+
 def hard_red_flags(candidate: dict) -> dict:
     """Each value is (flag: bool, reason: str). Use these to exclude or heavily
     down-rank -- not necessarily a hard zero, your call on weighting.
@@ -245,6 +264,7 @@ def hard_red_flags(candidate: dict) -> dict:
         "architect_no_code": architect_without_recent_code(candidate),
         "title_chaser": title_chase_pattern(candidate),
         "skill_inflation": skill_claim_vs_assessment_gap(candidate),
+        "yoe_mismatch": yoe_career_mismatch(candidate),
     }
 
 

@@ -188,8 +188,15 @@ def main():
     df["score"] = composite_score(df)
     df = df.sort_values(["score", "candidate_id"], ascending=[False, True]).reset_index(drop=True)
 
-    # Cross-encoder rerank of top 40 (optional -- skips gracefully if model absent)
-    df = cross_encoder_rerank(df, JD_TEXT, top_k=40)
+    # Cross-encoder disabled for final submission.
+    # ms-marco-MiniLM was trained on web search passages, not resume-JD matching.
+    # Tested on real data: moved CAND_0006567 (1 JD signal, a/b test only) to
+    # rank 4 while pushing CAND_0046525 (12 JD signals, LinkedIn+Genpact) to rank 5.
+    # Domain mismatch -- it overweights generic ML terminology and brand names.
+    # Re-enable only if you have time to validate a domain-specific cross-encoder
+    # (e.g. bge-reranker-base which was trained on retrieval tasks, not MS MARCO).
+    # df = cross_encoder_rerank(df, JD_TEXT, top_k=40)
+
     df["rank"] = range(1, len(df) + 1)
 
     top100 = df.head(100).copy()
