@@ -1,47 +1,55 @@
 # redrob-ranker
 
-AI recruiting system that ranks 100K candidates against a Senior AI Engineer JD.
-Built for the India Runs Data & AI Challenge hackathon.
+Candidate ranking system built for the India Runs Data & AI Challenge. Ranks 100K candidates against a Senior AI Engineer JD and produces a shortlist of 100, ordered by fit.
 
-## Quick start — single command reproduction
+## Reproduce the submission
 
 ```bash
 python src/pipeline.py --candidates ./candidates.jsonl --out ./submission.csv
 ```
 
-Expected runtime: ~45s on CPU. Peak memory: ~2GB.
+Runtime: ~45s on CPU. Peak memory: ~2GB. No GPU, no network required.
 
-## Architecture
+## How it works
 
-Five-stage pipeline:
+Five stages, each building on the last:
 
-1. **Hard filter** — 47-title exact taxonomy cuts 100K → 31K candidates (Tier A/B, decoys excluded)
-2. **Feature extraction** — JD disqualifier rules + behavioral signals from `redrob_signals`
-3. **Semantic scoring** — precomputed BGE (`bge-small-en-v1.5`) cosine similarity vs JD
-4. **Composite fusion** — weighted combination: title (0.25) + semantic (0.40) + JD signals (0.15) + location (0.10) + notice (0.05) + experience (0.05), multiplied by behavioral modifier
-5. **Reasoning generator** — grounded 1-2 sentence explanation per candidate, sourced from career descriptions only (no hallucination)
+**1. Title filter** — An exact 47-title taxonomy classifies every candidate into Tier A (genuine ML/AI titles), Tier B (adjacent SWE/Data/DevOps), or decoy. Decoys are dropped immediately, cutting 100K to ~31K candidates.
 
-## Pre-computation (one-time, not in the 5-minute window)
+**2. Feature extraction** — JD disqualifier rules flag consulting-only careers, title-chaser patterns, and skill self-assessment gaps. A honeypot check catches impossible YOE vs career history mismatches (>7yr gap with >2x ratio). Behavioral signals from `redrob_signals` are extracted: last-active recency, recruiter response rate, interview completion rate.
 
-BGE embeddings are precomputed and committed to the repo (`data/precomputed/*.npy`, ~48MB).
-To regenerate them:
+**3. Semantic scoring** — BGE (`bge-small-en-v1.5`) embeddings, precomputed offline, are loaded as numpy arrays. Cosine similarity against the JD embedding gives a semantic fit score. No model inference at ranking time.
+
+**4. Composite fusion** — Weighted score combining:
+- Title tier: 0.25
+- BGE semantic fit: 0.35
+- JD narrative signal count (career descriptions only): 0.10
+- Skills signal coverage: 0.05
+- Location fit: 0.10
+- Notice period: 0.05
+- Experience fit: 0.05
+
+The composite score is multiplied by a dampened behavioral modifier (floor ~0.70x) to down-weight candidates who are strong on paper but disengaged.
+
+**5. Reasoning generator** — Each top-100 candidate gets a 1-2 sentence explanation sourced only from their career descriptions. Company names, scale numbers, and signal hits are extracted directly from the profile — no free-form LLM generation.
+
+## Precomputed embeddings
+
+BGE embeddings are committed to the repo (`data/precomputed/*.npy`, ~46MB). Regenerating them takes ~5 hours on CPU:
 
 ```bash
 pip install sentence-transformers
-python src/precompute_embeddings.py   # ~5h on CPU
+python src/precompute_embeddings.py
 ```
 
-The ranking step (`pipeline.py`) loads these as plain numpy arrays — no model inference,
-no network access at ranking time.
+The ranking step loads the `.npy` files directly — no model, no network.
 
 ## Docker
 
-Build:
 ```bash
 docker build -t redrob-ranker .
 ```
 
-Run:
 ```bash
 # Linux/macOS
 docker run --rm --network none \
@@ -60,10 +68,9 @@ docker run --rm --network none `
 
 ## Sandbox
 
-Live demo on Streamlit Cloud: [link TBD — deploy from this repo]
+[https://redrob-ranker-007.streamlit.app/](https://redrob-ranker-007.streamlit.app/)
 
-Accepts a small candidate sample (≤100 candidates), runs the full pipeline,
-shows score breakdown per component, allows CSV download.
+Upload a candidate sample (≤100 candidates JSON), view ranked results with per-component score breakdown, download as CSV.
 
 ## Repository structure
 
@@ -75,28 +82,28 @@ redrob-ranker/
 │   ├── rules.py                 # JD disqualifiers + behavioral modifier
 │   ├── rank.py                  # Composite scoring + fusion
 │   ├── generate_reasoning.py    # Per-candidate reasoning generator
-│   ├── patch_reasoning.py       # Stage 4 consistency fixes
-│   ├── jd_text.py               # JD query text
-│   ├── precompute_embeddings.py # One-time BGE precompute (offline)
-│   └── validate_top20.py        # Day 4 hand-validation helper
+│   ├── patch_reasoning.py       # Reasoning consistency fixes
+│   ├── jd_text.py               # JD query text (single source of truth)
+│   ├── precompute_embeddings.py # One-time BGE precompute (offline only)
+│   └── validate_top20.py        # Hand-validation helper
 ├── data/
-│   ├── raw/                     # candidates.jsonl (NOT committed, 487MB)
+│   ├── raw/                     # candidates.jsonl (not committed, 487MB)
 │   └── precomputed/
-│       ├── candidate_embeddings.npy  # Committed (~48MB)
-│       ├── jd_embedding.npy          # Committed
-│       └── embedding_ids.csv         # Committed
+│       ├── candidate_embeddings.npy  # ~46MB, committed
+│       ├── jd_embedding.npy
+│       └── embedding_ids.csv
 ├── app.py                       # Streamlit sandbox
 ├── Dockerfile
-├── requirements.txt             # Full dev dependencies
-├── requirements-docker.txt      # Minimal container dependencies
+├── requirements.txt
+├── requirements-docker.txt
 └── submission_metadata.yaml
 ```
 
-## Compute constraints (Stage 3)
+## Compute constraints
 
 | Constraint | Limit | Actual |
 |---|---|---|
 | Runtime | ≤5 min | ~45s |
 | RAM | ≤16GB | ~2GB peak |
-| GPU | None | None used |
-| Network | None | None (HF_HUB_OFFLINE=1) |
+| GPU | None | None |
+| Network at ranking time | None | None (HF_HUB_OFFLINE=1) |
