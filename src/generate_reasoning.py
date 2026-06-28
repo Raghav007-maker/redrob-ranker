@@ -1,22 +1,3 @@
-"""
-Day 5: reasoning generator.
-
-Reads submission_draft.csv, loads the full JSON for each top-100 candidate,
-and writes a final submission CSV with grounded 1-2 sentence reasoning.
-
-Stage 4 rubric (from submission_spec.docx) -- every line of this file
-is written against these checks:
-  Specific facts    -- cite actual years, title, companies, signal values
-  JD connection     -- connect to specific JD requirements
-  Honest concerns   -- acknowledge gaps where present
-  No hallucination  -- every claim must exist in the candidate's profile
-  Variation         -- 10 sampled must be substantively different
-  Rank consistency  -- tone must match rank (rank-5 ≠ rank-95 language)
-
-Run from src/:
-    python generate_reasoning.py
-"""
-
 import hashlib
 import json
 import os
@@ -49,7 +30,6 @@ TIER1_COMPANIES = [
 
 
 def _career_narrative(candidate: dict) -> str:
-    """Role descriptions + role titles ONLY (not skills list)."""
     parts = []
     for r in candidate.get("career_history", []):
         parts.append(r.get("title", ""))
@@ -58,7 +38,6 @@ def _career_narrative(candidate: dict) -> str:
 
 
 def narrative_hits(candidate: dict) -> list:
-    """JD signals found in career descriptions -- safe to cite."""
     text = _career_narrative(candidate)
     return [kw for kw in JD_MUST_HAVES if kw in text]
 
@@ -81,7 +60,6 @@ def extract_companies(candidate: dict):
 
 
 def extract_scale(candidate: dict):
-    """Largest production scale number from career descriptions."""
     desc = " ".join(r.get("description", "") for r in candidate.get("career_history", []))
     hits = re.findall(
         r"(\d+(?:\.\d+)?[MKB])\+?\s*(?:queries|users|items|candidates|records|profiles|documents)",
@@ -98,7 +76,6 @@ def consulting_concern(candidate: dict):
 
 
 def _h(candidate_id: str, n: int) -> int:
-    """Deterministic template selector -- same candidate always gets same variant."""
     return int(hashlib.md5(candidate_id.encode()).hexdigest(), 16) % n
 
 
@@ -119,16 +96,12 @@ def build_reasoning(rank: int, candidate: dict, row: pd.Series) -> str:
     consulting = consulting_concern(candidate)
 
     hit_count = len(hits)
-    # Filter out weak generic signals for top-10 display -- "a/b test" alone
-    # as the leading signal makes a rank-4 candidate look weak even when they're
-    # legitimately strong. Prefer specific tool/framework signals for the label.
     STRONG_SIGNALS = [h for h in hits if h not in ("a/b test", "information retrieval")]
     top_hits = (STRONG_SIGNALS[:2] if STRONG_SIGNALS else hits[:2])
     signal_str = " and ".join(top_hits) if top_hits else ""
 
     yoe_str = f"{yoe:.1f}yr" if yoe % 1 != 0 else f"{int(yoe)}yr"
 
-    # ---- Location note (only use cities we can verify from profile) ----
     loc_lower = location.lower()
     if "pune" in loc_lower:
         loc_note = "Pune-based (preferred location)"
@@ -145,7 +118,6 @@ def build_reasoning(rank: int, candidate: dict, row: pd.Series) -> str:
     else:
         loc_note = None
 
-    # ---- Notice note ----
     if notice <= 15:
         notice_note = "available immediately"
     elif notice <= 30:
@@ -155,18 +127,9 @@ def build_reasoning(rank: int, candidate: dict, row: pd.Series) -> str:
     else:
         notice_note = f"{notice}-day notice"
 
-    # ---- GitHub note ----
     github_note = "active open-source presence" if github > 70 else None
 
-    # ---- Concern ----
     concern = None
-    if consulting and not any(
-        r.get("company", "") != consulting
-        and not any(f in r.get("company","").lower() for f in CONSULTING_FIRMS)
-        for r in candidate.get("career_history", [])
-        if not r.get("is_current")
-    ):
-        pass  # consulting-only already penalised in score; mention only at tail
     if notice > 90:
         concern = f"{notice}-day notice is a material constraint"
     elif notice > 60 and rank > 20:
@@ -178,19 +141,11 @@ def build_reasoning(rank: int, candidate: dict, row: pd.Series) -> str:
     if hit_count == 0 and rank > 30:
         concern = "limited direct retrieval/ranking evidence in role descriptions"
 
-    # ---- Build company trajectory string ----
     company_traj = current_co
     if past_co and past_co != current_co:
         company_traj = f"{past_co} → {current_co}"
 
-    # ---- Scale string ----
     scale_str = f" at {scale} scale" if scale else ""
-
-    # ===========================================================
-    # RANK BAND TEMPLATES
-    # Each band has multiple variants; _h() picks deterministically.
-    # All claims must be derivable from the data extracted above.
-    # ===========================================================
 
     if rank <= 3:
         opts = [
@@ -205,7 +160,7 @@ def build_reasoning(rank: int, candidate: dict, row: pd.Series) -> str:
             f"{'; ' + loc_note if loc_note else ''}"
             f"{'; ' + github_note if github_note else ''}.",
 
-            f"Strongest signal in pool: {yoe_str} at {company_traj}, "
+            f"{yoe_str} at {company_traj}, "
             f"hands-on {signal_str or 'ML'} with {hit_count} JD signal matches"
             f"{scale_str}"
             f"{'; ' + loc_note if loc_note else ''}.",
@@ -270,7 +225,6 @@ def build_reasoning(rank: int, candidate: dict, row: pd.Series) -> str:
         return f"{base}."
 
     else:
-        # Ranks 61-100: honest about limitations
         if hit_count == 0:
             return (
                 f"Adjacent ML background at {current_co} ({yoe_str}); "
@@ -331,7 +285,9 @@ def main():
 
     draft["reasoning"] = reasonings
 
-    # Validate score is monotonically non-increasing (submission rule)
+    draft = draft.sort_values(["score", "candidate_id"], ascending=[False, True]).reset_index(drop=True)
+    draft["rank"] = range(1, len(draft) + 1)
+
     scores = draft["score"].tolist()
     violations = sum(1 for i in range(1, len(scores)) if scores[i] > scores[i-1] + 1e-6)
     if violations:
